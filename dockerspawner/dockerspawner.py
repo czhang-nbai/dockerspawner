@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 import warnings
 
 import docker
+import requests
 from docker.errors import APIError
 from docker.utils import kwargs_from_env
 from tornado import gen, web
@@ -191,6 +192,16 @@ class DockerSpawner(Spawner):
         as long as the version of jupyterhub in the image is compatible.
         """,
     )
+
+    pisces_host = Unicode(
+        "http://192.168.88.253:6565",
+        config=True
+    )
+
+    def getGpu(self, username):
+        r = requests.get(url=self.pisces_host + '/api/v1/users/gpu/' + username)
+        data = r.json()
+        return data['gpu']
 
     image_whitelist = Union(
         [Any(), Dict(), List()],
@@ -980,6 +991,9 @@ class DockerSpawner(Spawner):
             obj = None
 
         if obj is None:
+
+            gpuNumber = self.getGpu(self.user.name)
+            self.env['NVIDIA_VISIBLE_DEVICES']=str(gpuNumber)
             obj = yield self.create_object()
             self.object_id = obj[self.object_id_key]
             self.log.info(
